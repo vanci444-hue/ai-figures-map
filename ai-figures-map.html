@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 关键人物关系图</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0d0f14;
+    color: #e2e8f0;
+    font-family: 'SF Pro Display', -apple-system, 'PingFang SC', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 16px 28px;
+    background: rgba(13,15,20,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #f1f5f9;
+  }
+
+  #header p {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  #canvas {
+    width: 100vw;
+    height: 100vh;
+    padding-top: 60px;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .link {
+    stroke-opacity: 0.35;
+    stroke-width: 1.5;
+  }
+
+  .link-label {
+    font-size: 9px;
+    fill: #64748b;
+    pointer-events: none;
+    text-anchor: middle;
+  }
+
+  .node-group {
+    cursor: pointer;
+  }
+
+  .node-group:hover .node-ring {
+    stroke-opacity: 0.8;
+    stroke-width: 2.5;
+  }
+
+  .node-ring {
+    stroke-width: 2;
+    stroke-opacity: 0.5;
+    fill: none;
+    transition: all 0.2s;
+  }
+
+  .node-circle {
+    stroke-width: 0;
+  }
+
+  .node-initials {
+    font-size: 11px;
+    font-weight: 700;
+    fill: rgba(255,255,255,0.92);
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+  }
+
+  .node-name {
+    font-size: 10px;
+    font-weight: 600;
+    fill: #e2e8f0;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
+  .node-sub {
+    font-size: 8.5px;
+    fill: #64748b;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
+  /* Event nodes */
+  .event-label {
+    font-size: 9px;
+    font-weight: 700;
+    fill: #f97316;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
+  .event-sub {
+    font-size: 8px;
+    fill: #94a3b8;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    background: rgba(15,20,30,0.97);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    max-width: 240px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+    line-height: 1.6;
+  }
+
+  #tooltip h3 {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #f1f5f9;
+  }
+
+  #tooltip p {
+    color: #94a3b8;
+    font-size: 11px;
+  }
+
+  #tooltip .tag {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  #hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #334155;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>AI 关键人物关系图</h1>
+    <p>从图灵到 ChatGPT — 现代 AI 的人脉拓扑</p>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>先驱三巨头</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Hinton 学生</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Google/Transformer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>OpenAI</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0ea5e9"></div>学术/数据</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f97316;border-radius:0;transform:rotate(45deg);width:9px;height:9px"></div>关键事件</div>
+  </div>
+</div>
+
+<div id="canvas"><svg id="svg"></svg></div>
+<div id="tooltip"></div>
+<div id="hint">拖拽节点 · 悬停查看详情 · 滚轮缩放</div>
+
+<script>
+const W = window.innerWidth;
+const H = window.innerHeight - 60;
+const cx = W / 2, cy = H / 2;
+
+// ─── DATA ───────────────────────────────────────────────
+const nodes = [
+  // Pioneers
+  { id: "turing",   name: "Alan Turing", sub: "图灵·AI之父", initials: "AT", color: "#f59e0b", r: 34, group: "pioneer",
+    bio: "1950年提出「机器能思考吗？」，发明图灵测试，奠定整个AI学科的理论基础。", tag: "先驱", x: cx, y: cy - 250 },
+
+  { id: "hinton",   name: "Geoffrey Hinton", sub: "深度学习教父", initials: "GH", color: "#f59e0b", r: 36, group: "pioneer",
+    bio: "反复押注神经网络30年，2006年推动深度学习复兴。2018年与LeCun、Bengio共获图灵奖。2023年离开Google警示AI风险。", tag: "先驱三巨头", x: cx - 180, y: cy - 80 },
+
+  { id: "lecun",    name: "Yann LeCun", sub: "CNN之父·Meta AI", initials: "YL", color: "#f59e0b", r: 30, group: "pioneer",
+    bio: "卷积神经网络（CNN）发明者，Meta AI首席科学家。与Hinton、Bengio并称「深度学习三巨头」，2018年图灵奖。", tag: "先驱三巨头", x: cx - 360, y: cy + 60 },
+
+  { id: "bengio",   name: "Yoshua Bengio", sub: "蒙特利尔·序列模型", initials: "YB", color: "#f59e0b", r: 30, group: "pioneer",
+    bio: "序列模型与注意力机制早期奠基人，Mila实验室创始人，2018年图灵奖。致力于AI安全与伦理研究。", tag: "先驱三巨头", x: cx - 360, y: cy - 220 },
+
+  // Hinton students
+  { id: "alex",     name: "Alex Krizhevsky", sub: "AlexNet作者", initials: "AK", color: "#3b82f6", r: 26, group: "student",
+    bio: "Hinton博士生，2012年与Hinton、Ilya合作创造AlexNet，以大幅领先优势赢得ImageNet，引爆深度学习革命。", tag: "Hinton门徒", x: cx - 60, y: cy + 120 },
+
+  { id: "ilya",     name: "Ilya Sutskever", sub: "OpenAI联合创始人", initials: "IS", color: "#3b82f6", r: 30, group: "student",
+    bio: "Hinton最优秀的学生之一，AlexNet三作者之一。与Musk等人共同创立OpenAI，担任首席科学家，推动GPT系列发展。", tag: "Hinton门徒", x: cx + 60, y: cy + 60 },
+
+  // Data/Academia
+  { id: "feifei",   name: "Fei-Fei Li", sub: "李飞飞·ImageNet", initials: "FL", color: "#0ea5e9", r: 30, group: "data",
+    bio: "斯坦福AI Lab主任，2009年创建ImageNet数据集（120万张图）。ImageNet竞赛成为检验深度学习的擂台，直接触发2012年革命。", tag: "数据/学术", x: cx + 220, y: cy - 180 },
+
+  // Google / Transformer
+  { id: "vaswani",  name: "Vaswani et al.", sub: "Transformer·8位作者", initials: "8×", color: "#8b5cf6", r: 28, group: "google",
+    bio: "2017年「Attention Is All You Need」8位Google作者：Vaswani、Shazeer、Parmar、Uszkoreit、Jones、Gomez、Kaiser、Polosukhin。论文发布后几乎全部离开Google自主创业。", tag: "Google Brain", x: cx + 300, y: cy + 20 },
+
+  // OpenAI
+  { id: "sam",      name: "Sam Altman", sub: "OpenAI CEO", initials: "SA", color: "#10b981", r: 32, group: "openai",
+    bio: "OpenAI CEO，前YC总裁。带领OpenAI推出ChatGPT，引爆全球AI浪潮。2023年曾短暂被董事会罢免，后复职。", tag: "OpenAI", x: cx + 200, y: cy + 200 },
+
+  // Events
+  { id: "ev1950",   name: "1950", sub: "图灵测试提出", initials: "◆", color: "#f97316", r: 20, group: "event", isEvent: true,
+    bio: "Alan Turing发表「Computing Machinery and Intelligence」，提出图灵测试，AI学科诞生。", x: cx + 100, y: cy - 290 },
+
+  { id: "ev2012",   name: "2012", sub: "ImageNet时刻", initials: "◆", color: "#f97316", r: 22, group: "event", isEvent: true,
+    bio: "AlexNet以超出第二名10%的准确率赢得ImageNet竞赛，深度学习革命正式引爆，掀起AI第三次浪潮。", x: cx + 100, y: cy + 160 },
+
+  { id: "ev2017",   name: "2017", sub: "Transformer诞生", initials: "◆", color: "#f97316", r: 22, group: "event", isEvent: true,
+    bio: "Google发布「Attention Is All You Need」，Transformer架构成为所有现代大模型（GPT、Claude、Gemini）的基础。", x: cx + 420, y: cy + 140 },
+
+  { id: "ev2022",   name: "2022", sub: "ChatGPT发布", initials: "◆", color: "#f97316", r: 24, group: "event", isEvent: true,
+    bio: "OpenAI发布ChatGPT，上线5天100万用户，2个月1亿用户，史上增长最快的消费产品，AI进入大众视野。", x: cx + 360, y: cy + 290 },
+];
+
+const links = [
+  // Turing → pioneers
+  { source: "turing", target: "hinton",  label: "理论基础", color: "#f59e0b" },
+  { source: "turing", target: "lecun",   label: "理论基础", color: "#f59e0b" },
+  { source: "turing", target: "bengio",  label: "理论基础", color: "#f59e0b" },
+  { source: "turing", target: "ev1950",  label: "", color: "#f97316" },
+
+  // Hinton → students
+  { source: "hinton", target: "alex",    label: "博士导师", color: "#3b82f6" },
+  { source: "hinton", target: "ilya",    label: "博士导师", color: "#3b82f6" },
+
+  // Feifei → event
+  { source: "feifei", target: "ev2012",  label: "创建ImageNet擂台", color: "#0ea5e9" },
+  { source: "alex",   target: "ev2012",  label: "AlexNet夺冠", color: "#3b82f6" },
+  { source: "ilya",   target: "ev2012",  label: "AlexNet三作者", color: "#3b82f6" },
+  { source: "hinton", target: "ev2012",  label: "", color: "#f59e0b" },
+
+  // Google → Transformer
+  { source: "vaswani", target: "ev2017", label: "发布论文", color: "#8b5cf6" },
+  { source: "bengio",  target: "vaswani",label: "注意力机制启发", color: "#8b5cf6" },
+
+  // OpenAI chain
+  { source: "ilya",   target: "sam",     label: "共同创立OpenAI", color: "#10b981" },
+  { source: "sam",    target: "ev2022",  label: "发布ChatGPT", color: "#10b981" },
+  { source: "ev2017", target: "ev2022",  label: "Transformer→GPT", color: "#f97316" },
+  { source: "ev2012", target: "ev2017",  label: "DL革命推动", color: "#f97316" },
+
+  // Three godfathers
+  { source: "hinton", target: "lecun",   label: "三巨头", color: "#f59e0b", dashed: true },
+  { source: "hinton", target: "bengio",  label: "三巨头", color: "#f59e0b", dashed: true },
+];
+
+// ─── SVG SETUP ─────────────────────────────────────────
+const svg = d3.select("#svg");
+const defs = svg.append("defs");
+
+// Glow filters
+["amber","blue","purple","green","cyan","orange"].forEach((name, i) => {
+  const colors = { amber:"#f59e0b", blue:"#3b82f6", purple:"#8b5cf6", green:"#10b981", cyan:"#0ea5e9", orange:"#f97316" };
+  const f = defs.append("filter").attr("id", `glow-${name}`).attr("x","-50%").attr("y","-50%").attr("width","200%").attr("height","200%");
+  f.append("feGaussianBlur").attr("stdDeviation","3").attr("result","blur");
+  const merge = f.append("feMerge");
+  merge.append("feMergeNode").attr("in","blur");
+  merge.append("feMergeNode").attr("in","SourceGraphic");
+});
+
+const container = svg.append("g").attr("transform", `translate(0, 60)`);
+
+// Zoom
+svg.call(d3.zoom().scaleExtent([0.3, 2.5]).on("zoom", (e) => {
+  container.attr("transform", `translate(${e.transform.x}, ${e.transform.y + 60}) scale(${e.transform.k})`);
+}));
+
+// ─── SIMULATION ────────────────────────────────────────
+const sim = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
+    if (d.source.group === "event" || d.target.group === "event") return 120;
+    return 160;
+  }).strength(0.3))
+  .force("charge", d3.forceManyBody().strength(-400))
+  .force("center", d3.forceCenter(cx, cy - 30))
+  .force("collide", d3.forceCollide(d => d.r + 30))
+  .alphaDecay(0.02);
+
+// Use fixed initial positions to guide layout
+nodes.forEach(n => { n.fx = n.x; n.fy = n.y; });
+setTimeout(() => { nodes.forEach(n => { delete n.fx; delete n.fy; }); sim.alpha(0.5).restart(); }, 800);
+
+// ─── LINKS ─────────────────────────────────────────────
+const linkGroup = container.append("g");
+
+const linkLines = linkGroup.selectAll("line").data(links).enter().append("line")
+  .attr("class", "link")
+  .attr("stroke", d => d.color || "#475569")
+  .attr("stroke-dasharray", d => d.dashed ? "4,3" : null);
+
+const linkLabels = linkGroup.selectAll(".link-label").data(links.filter(d => d.label)).enter()
+  .append("text").attr("class", "link-label").text(d => d.label);
+
+// ─── NODES ─────────────────────────────────────────────
+const nodeGroup = container.append("g");
+
+const nodeGroups = nodeGroup.selectAll(".node-group").data(nodes).enter()
+  .append("g").attr("class", "node-group")
+  .call(d3.drag()
+    .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+    .on("end",   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+  )
+  .on("mouseover", showTooltip)
+  .on("mousemove", moveTooltip)
+  .on("mouseout",  hideTooltip);
+
+// Outer glow ring
+nodeGroups.append("circle")
+  .attr("class", "node-ring")
+  .attr("r", d => d.r + 5)
+  .attr("stroke", d => d.color);
+
+// Background circle
+nodeGroups.append("circle")
+  .attr("class", "node-circle")
+  .attr("r", d => d.r)
+  .attr("fill", d => d.isEvent ? "rgba(249,115,22,0.15)" : `${d.color}22`)
+  .attr("stroke", d => d.color)
+  .attr("stroke-width", d => d.isEvent ? 2 : 1.5)
+  .attr("stroke-opacity", 0.7)
+  .attr("filter", d => {
+    const map = { "#f59e0b": "glow-amber", "#3b82f6": "glow-blue", "#8b5cf6": "glow-purple", "#10b981": "glow-green", "#0ea5e9": "glow-cyan", "#f97316": "glow-orange" };
+    return `url(#${map[d.color] || "glow-amber"})`;
+  });
+
+// Event diamond overlay
+nodeGroups.filter(d => d.isEvent).append("rect")
+  .attr("x", d => -d.r * 0.65).attr("y", d => -d.r * 0.65)
+  .attr("width", d => d.r * 1.3).attr("height", d => d.r * 1.3)
+  .attr("fill", "none")
+  .attr("stroke", "#f97316")
+  .attr("stroke-width", 1.5)
+  .attr("stroke-opacity", 0.5)
+  .attr("transform", "rotate(45)");
+
+// Initials
+nodeGroups.filter(d => !d.isEvent).append("text")
+  .attr("class", "node-initials")
+  .attr("dy", -4)
+  .text(d => d.initials);
+
+// Event year
+nodeGroups.filter(d => d.isEvent).append("text")
+  .attr("class", "event-label")
+  .text(d => d.name);
+
+// Name label (below circle)
+nodeGroups.filter(d => !d.isEvent).append("text")
+  .attr("class", "node-name")
+  .attr("dy", d => d.r + 13)
+  .text(d => d.name.split(" ").slice(-1)[0] === d.name ? d.name : d.name);
+
+// Sub label
+nodeGroups.filter(d => !d.isEvent).append("text")
+  .attr("class", "node-sub")
+  .attr("dy", d => d.r + 24)
+  .text(d => d.sub);
+
+nodeGroups.filter(d => d.isEvent).append("text")
+  .attr("class", "event-sub")
+  .attr("dy", d => d.r + 14)
+  .text(d => d.sub);
+
+// ─── TICK ──────────────────────────────────────────────
+sim.on("tick", () => {
+  linkLines
+    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+
+  linkLabels
+    .attr("x", d => (d.source.x + d.target.x) / 2)
+    .attr("y", d => (d.source.y + d.target.y) / 2 - 4);
+
+  nodeGroups.attr("transform", d => `translate(${d.x}, ${d.y})`);
+});
+
+// ─── TOOLTIP ───────────────────────────────────────────
+const tt = document.getElementById("tooltip");
+
+function showTooltip(e, d) {
+  const tagColors = {
+    pioneer: "#f59e0b", student: "#3b82f6", google: "#8b5cf6",
+    openai: "#10b981", data: "#0ea5e9", event: "#f97316"
+  };
+  tt.innerHTML = `
+    <h3>${d.name}</h3>
+    <p>${d.bio}</p>
+    ${d.tag ? `<span class="tag" style="background:${tagColors[d.group]}22;color:${tagColors[d.group]};border:1px solid ${tagColors[d.group]}44">${d.tag}</span>` : ""}
+  `;
+  tt.style.opacity = 1;
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const x = e.clientX + 16, y = e.clientY - 10;
+  tt.style.left = Math.min(x, window.innerWidth - 260) + "px";
+  tt.style.top  = Math.min(y, window.innerHeight - 160) + "px";
+}
+
+function hideTooltip() { tt.style.opacity = 0; }
+
+// ─── RESIZE ────────────────────────────────────────────
+window.addEventListener("resize", () => {
+  sim.force("center", d3.forceCenter(window.innerWidth/2, (window.innerHeight-60)/2));
+  sim.alpha(0.1).restart();
+});
+</script>
+</body>
+</html>
