@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "课程页面预览",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "3000", "--directory", "/Users/zhaojiaqi/Library/Mobile Documents/iCloud~md~obsidian/Documents/Evan/03-Output 输出文档/AI产品课程/课程设计"],
+      "port": 3000
+    }
+  ]
+}
